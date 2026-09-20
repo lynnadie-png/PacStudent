@@ -1,5 +1,6 @@
 using UnityEngine;
 
+[ExecuteInEditMode]
 public class LevelBuilder : MonoBehaviour
 {
     public GameObject outsideWallPrefab;
@@ -12,6 +13,7 @@ public class LevelBuilder : MonoBehaviour
     public GameObject ghostExitWallPrefab;
 
     public float tileSize = 1f;
+    private bool built = false;
 
     private int[,] levelMap = new int[,]
     {
@@ -32,12 +34,26 @@ public class LevelBuilder : MonoBehaviour
         {0,0,0,0,0,0,5,0,0,0,4,0,0,0},
     };
 
-    void Start()
+    void Awake()
     {
+        BuildIfNeeded();
+    }
+
+    void OnEnable()
+    {
+        BuildIfNeeded();
+    }
+
+    void BuildIfNeeded()
+    {
+        if (built) return;
+        if (transform.childCount > 0) { built = true; return; }
+
         BuildQuadrant(1, 1);
         BuildQuadrant(-1, 1);
         BuildQuadrant(1, -1);
         BuildQuadrant(-1, -1);
+        built = true;
     }
 
     void BuildQuadrant(float flipX, float flipY)
