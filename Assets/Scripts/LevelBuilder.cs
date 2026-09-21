@@ -34,53 +34,123 @@ public class LevelBuilder : MonoBehaviour
         {0,0,0,0,0,0,5,0,0,0,4,0,0,0},
     };
 
-    void Awake()
-    {
-        BuildIfNeeded();
-    }
-
-    void OnEnable()
-    {
-        BuildIfNeeded();
-    }
+    void Awake() { BuildIfNeeded(); }
+    void OnEnable() { BuildIfNeeded(); }
 
     void BuildIfNeeded()
     {
         if (built) return;
         if (transform.childCount > 0) { built = true; return; }
 
-        BuildQuadrant(1, 1);
-        BuildQuadrant(-1, 1);
-        BuildQuadrant(1, -1);
-        BuildQuadrant(-1, -1);
+        BuildQuadrant(levelMap, 1, 1);
+        BuildQuadrant(MirrorHorizontal(levelMap), -1, 1);
+        int[,] trimmed = TrimLastRow(levelMap);
+        BuildQuadrant(MirrorVertical(trimmed), 1, -1);
+        BuildQuadrant(MirrorVertical(MirrorHorizontal(trimmed)), -1, -1);
+
         built = true;
     }
 
-    void BuildQuadrant(float flipX, float flipY)
+    bool IsWallType(int value)
     {
-        int rows = levelMap.GetLength(0);
-        int cols = levelMap.GetLength(1);
+        return value == 1 || value == 2 || value == 3 || value == 4 || value == 7 || value == 8;
+    }
+
+    int[,] MirrorHorizontal(int[,] map)
+    {
+        int rows = map.GetLength(0), cols = map.GetLength(1);
+        int[,] result = new int[rows, cols];
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                result[r, c] = map[r, cols - 1 - c];
+        return result;
+    }
+
+    int[,] MirrorVertical(int[,] map)
+    {
+        int rows = map.GetLength(0), cols = map.GetLength(1);
+        int[,] result = new int[rows, cols];
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+                result[r, c] = map[rows - 1 - r, c];
+        return result;
+    }
+
+    int[,] TrimLastRow(int[,] map)
+    {
+        int rows = map.GetLength(0), cols = map.GetLength(1);
+        int[,] result = new int[rows - 1, cols];
+        for (int r = 0; r < rows - 1; r++)
+            for (int c = 0; c < cols; c++)
+                result[r, c] = map[r, c];
+        return result;
+    }
+
+    void BuildQuadrant(int[,] map, float signX, float signY)
+    {
+        int rows = map.GetLength(0);
+        int cols = map.GetLength(1);
 
         for (int row = 0; row < rows; row++)
         {
             for (int col = 0; col < cols; col++)
             {
-                int value = levelMap[row, col];
+                int value = map[row, col];
                 GameObject prefab = GetPrefab(value);
                 if (prefab == null) continue;
 
-                float x = col * tileSize * flipX;
-                float y = -row * tileSize * flipY;
-
+                float x = col * tileSize * signX;
+                float y = -row * tileSize * signY;
                 Vector3 pos = new Vector3(x, y, 0);
-                GameObject piece = Instantiate(prefab, pos, Quaternion.identity, transform);
 
-                Vector3 scale = piece.transform.localScale;
-                scale.x *= flipX;
-                scale.y *= flipY;
-                piece.transform.localScale = scale;
+                float rotationZ = 0f;
+                if (value == 1 || value == 2 || value == 3 || value == 4 || value == 7)
+                {
+                    rotationZ = GetRotation(map, row, col, value);
+                }
+
+                GameObject piece = Instantiate(prefab, pos, Quaternion.Euler(0, 0, rotationZ), transform);
             }
         }
+    }
+
+
+    float GetRotation(int[,] map, int row, int col, int value)
+    {
+        int rows = map.GetLength(0), cols = map.GetLength(1);
+
+        bool up = row > 0 && IsWallType(map[row - 1, col]);
+        bool down = row < rows - 1 && IsWallType(map[row + 1, col]);
+        bool left = col > 0 && IsWallType(map[row, col - 1]);
+        bool right = col < cols - 1 && IsWallType(map[row, col + 1]);
+
+        if (value == 2 || value == 4) 
+        {
+       
+            if (left || right) return 0f;
+            if (up || down) return 90f;
+            return 0f;
+        }
+
+        if (value == 1 || value == 3) 
+        {
+            if (right && down) return 0f;
+            if (left && down) return 90f;
+            if (left && up) return 180f;
+            if (right && up) return 270f;
+            return 0f;
+        }
+
+        if (value == 7) 
+        {
+            if (up && left && right) return 0f;
+            if (up && down && right) return 90f;
+            if (down && left && right) return 180f;
+            if (up && down && left) return 270f;
+            return 0f;
+        }
+
+        return 0f;
     }
 
     GameObject GetPrefab(int value)
